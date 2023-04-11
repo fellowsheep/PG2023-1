@@ -124,6 +124,8 @@ int main()
 		//Matriz de modelo -- transformações na geometria 
 		glm::mat4 model = glm::mat4(1); //matriz identidade
 		model = glm::translate(model, glm::vec3(400.0, 300.0, 0.0));
+		float angle = glfwGetTime();
+		model = glm::rotate(model, /*glm::radians(90.0f)*/angle, glm::vec3(0.0, 0.0, 1.0));
 		model = glm::scale(model, glm::vec3(300.0, 300.0, 1.0));
 		GLint modelLoc = glGetUniformLocation(shader.ID, "model");
 		glUniformMatrix4fv(modelLoc, 1, FALSE, glm::value_ptr(model));
