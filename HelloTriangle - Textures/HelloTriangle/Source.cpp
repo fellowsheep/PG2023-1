@@ -24,6 +24,8 @@ using namespace std;
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+//STB IMAGE
+#include "stb_image.h"
 
 //Classe shader
 #include "Shader.h"
@@ -34,6 +36,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 // Protótipos das funções
 int setupGeometry();
+GLuint generateTexture(string filePath);
 
 // Dimensões da janela (pode ser alterado em tempo de execução)
 const GLuint WIDTH = 800, HEIGHT = 600;
@@ -59,7 +62,7 @@ int main()
 //#endif
 
 	// Criação da janela GLFW
-	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Ola Triangulo Colorido!", nullptr, nullptr);
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "Ola Triangulo Com Textura!", nullptr, nullptr);
 	glfwMakeContextCurrent(window);
 
 	// Fazendo o registro da função de callback para a janela GLFW
@@ -86,8 +89,10 @@ int main()
 
 	// Gerando um buffer simples, com a geometria de um triângulo
 	GLuint VAO = setupGeometry();
+	GLuint texID = generateTexture("../../textures/wall.jpg");
+	GLuint texID2 = generateTexture("../../textures/mario.png");
 	
-	
+
 	glUseProgram(shader.ID);
 
 	//Matriz de projeção paralela ortográfica
@@ -101,6 +106,9 @@ int main()
 	GLint projLoc = glGetUniformLocation(shader.ID, "projection");
 	glUniformMatrix4fv(projLoc, 1, FALSE, glm::value_ptr(projection));
 
+	//Ativar o buffer de textura
+	glActiveTexture(GL_TEXTURE0);
+	
 	// Loop da aplicação - "game loop"
 	while (!glfwWindowShouldClose(window))
 	{
@@ -133,6 +141,10 @@ int main()
 		// Chamada de desenho - drawcall
 		// Poligono Preenchido - GL_TRIANGLES
 
+
+		//Conectar com a textura a ser usada
+		glBindTexture(GL_TEXTURE_2D, texID);
+
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 
 		// Chamada de desenho - drawcall
@@ -143,8 +155,6 @@ int main()
 		//glDrawArrays(GL_LINE_LOOP, 3, 3);
 
 		glDrawArrays(GL_POINTS, 0, 3);
-
-
 		
 
 		glBindVertexArray(0); //Desconectando o buffer de geometria
@@ -180,10 +190,10 @@ int setupGeometry()
 	// Cada atributo do vértice (coordenada, cores, coordenadas de textura, normal, etc)
 	// Pode ser arazenado em um VBO único ou em VBOs separados
 	GLfloat vertices[] = {
-		//x   y     z    r    g    b
-		-0.5 , -0.5 , 0.0, 1.0, 0.0, 0.0, //v0
-		 0.5 , -0.5 , 0.0, 0.0, 1.0, 0.0, //v1
-		 0.0 , 0.5 ,  0.0, 0.0, 0.0, 1.0  //v2
+		//x   y     z    r    g    b     s     t
+		-0.5 , -0.5 , 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, //v0
+		 0.5 , -0.5 , 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, //v1
+		 0.0 , 0.5 ,  0.0, 0.0, 0.0, 1.0, 0.5, 1.0  //v2
 	};
 
 	GLuint VBO, VAO;
@@ -209,12 +219,16 @@ int setupGeometry()
 	// Deslocamento a partir do byte zero 
 
 	//Atributo posição
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)0);
 	glEnableVertexAttribArray(0);
 
 	//Atributo cor
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(3 * sizeof(GLfloat)));
 	glEnableVertexAttribArray(1);
+
+	//Atributo coordenada de textura
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(GLfloat), (GLvoid*)(6 * sizeof(GLfloat)));
+	glEnableVertexAttribArray(2);
 
 	// Observe que isso é permitido, a chamada para glVertexAttribPointer registrou o VBO como o objeto de buffer de vértice 
 	// atualmente vinculado - para que depois possamos desvincular com segurança
@@ -224,5 +238,47 @@ int setupGeometry()
 	glBindVertexArray(0); 
 
 	return VAO;
+}
+
+GLuint generateTexture(string filePath)
+{
+	GLuint texID;
+	// Gera o identificador da textura na memória 
+	glGenTextures(1, &texID);
+	glBindTexture(GL_TEXTURE_2D, texID);
+
+	//Definindo o método de wrapping e de filtering
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	//Carregando a imagen da textura
+	int width, height, nrChannels;
+	unsigned char* data = stbi_load(filePath.c_str(), &width, &height, &nrChannels, 0);
+
+	//Manda para OpenGL armazenar a textura e gerar o mipmap
+	if (data)
+	{
+		if (nrChannels == 3) //jpg, bmp
+		{
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		}
+		else //png
+		{
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+		}
+		glGenerateMipmap(GL_TEXTURE_2D);
+	}
+	else
+	{
+		std::cout << "Failed to load texture" << std::endl;
+	}
+
+	stbi_image_free(data);
+	glBindTexture(GL_TEXTURE_2D, 0);
+
+	return texID;
 }
 
