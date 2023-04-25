@@ -30,6 +30,9 @@ using namespace std;
 //Classe shader
 #include "Shader.h"
 
+//Classe sprite
+#include "Sprite.h"
+
 
 // Protótipo da função de callback de teclado
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mode);
@@ -39,11 +42,12 @@ int setupGeometry();
 int setupSprite();
 
 GLuint generateTexture(string filePath, int &width, int &height);
+bool testCollision(Sprite spr1, Sprite spr2);
 
 // Dimensões da janela (pode ser alterado em tempo de execução)
 const GLuint WIDTH = 800, HEIGHT = 600;
 
-glm::vec3 charPos;
+Sprite character;
 
 // Função MAIN
 int main()
@@ -95,15 +99,22 @@ int main()
 
 	int bgwidth, bgheight;
 	int charwidth, charheight;
-	charPos.x = 100;
-	charPos.y = 110;
-	charPos.z = 0;
 
 	GLuint texID = generateTexture("../../textures/FairyTale/background.png", bgwidth, bgheight);
 	GLuint texID2 = generateTexture("../../textures/Spritesheets/walk1.png", charwidth, charheight);
 	
-	GLuint VAO_background = setupSprite();
-	GLuint VAO_character = setupSprite();
+	character.initialize(texID2, charwidth, charheight, 1, 6);
+	character.setShader(&shader);
+	character.setPosition(glm::vec3(100, 110, 0));
+	character.setScale(glm::vec3(charwidth, charheight, 1));
+
+
+	Sprite background;
+	background.initialize(texID, bgwidth, bgheight);
+	background.setShader(&shader);
+	background.setPosition(glm::vec3(400, 300, 0));
+	background.setScale(glm::vec3(bgwidth*0.5, bgheight*0.5, 1));
+	
 
 	glUseProgram(shader.ID);
 
@@ -147,31 +158,11 @@ int main()
 		glLineWidth(1);
 		glPointSize(5);
 
-		glBindVertexArray(VAO_background); //Conectando ao buffer de geometria
+		background.update();
+		background.draw();
 
-		//Matriz de modelo para desenho do background
-		glm::mat4 model = glm::mat4(1); //matriz identidade
-		model = glm::translate(model, glm::vec3(400.0, 300.0, 0.0));
-		float angle = glfwGetTime();
-		model = glm::scale(model, glm::vec3(bgwidth*0.5, bgheight*0.5, 1.0));
-		GLint modelLoc = glGetUniformLocation(shader.ID, "model");
-		glUniformMatrix4fv(modelLoc, 1, FALSE, glm::value_ptr(model));
-
-		// Chamada de desenho do background
-		glBindTexture(GL_TEXTURE_2D, texID);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
-
-		//Matriz de modelo para desenho do personagem
-		model = glm::mat4(1); //matriz identidade
-		model = glm::translate(model, charPos);
-		model = glm::scale(model, glm::vec3(charwidth, charheight, 1.0));
-		modelLoc = glGetUniformLocation(shader.ID, "model");
-		glUniformMatrix4fv(modelLoc, 1, FALSE, glm::value_ptr(model));
-
-		glBindVertexArray(VAO_character);
-		// Chamada de desenho do Personagem
-		glBindTexture(GL_TEXTURE_2D, texID2);
-		glDrawArrays(GL_TRIANGLES, 0, 6);
+		character.update();
+		character.draw();
 
 		
 
@@ -180,8 +171,7 @@ int main()
 		// Troca os buffers da tela
 		glfwSwapBuffers(window);
 	}
-	// Pede pra OpenGL desalocar os buffers
-	glDeleteVertexArrays(1, &VAO_background);
+	
 	// Finaliza a execução da GLFW, limpando os recursos alocados por ela
 	glfwTerminate();
 	return 0;
@@ -197,19 +187,19 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 	if (key == GLFW_KEY_D || key == GLFW_KEY_RIGHT)
 	{
-		charPos.x += 5.0;
+		character.moveRight();
 	}
 	if (key == GLFW_KEY_A || key == GLFW_KEY_LEFT)
 	{
-		charPos.x -= 5.0;
+		character.moveLeft();
 	}
 	if (key == GLFW_KEY_W || key == GLFW_KEY_UP)
 	{
-		charPos.y += 5.0;
+		character.moveUp();
 	}
 	if (key == GLFW_KEY_S || key == GLFW_KEY_DOWN)
 	{
-		charPos.y -= 5.0;
+		character.moveDown();
 	}
 }
 
@@ -373,5 +363,16 @@ GLuint generateTexture(string filePath, int &width, int &height)
 	glBindTexture(GL_TEXTURE_2D, 0);
 
 	return texID;
+}
+
+bool testCollision(Sprite spr1, Sprite spr2)
+{
+	glm::vec2 min1, min2, max1, max2;
+	spr1.getAABB(min1, max1);
+	spr2.getAABB(min2, max2);
+
+	//AQUI O IFZÃO DO TESTE SE UM RETANGULO INTERCEPTA O OUTRO
+
+	return false;
 }
 
